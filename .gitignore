@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+*.log
+state.txt
+.env
+node_modules/

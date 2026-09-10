@@ -18,7 +18,7 @@ TARGET_TEXT = "UCI RibeirãoShopping"
 URL = "https://www.ingresso.com/filme/duna-parte-3?city=ribeirao-preto"
 
 
-def cinema_is_available(url: str) -> bool:
+def cinema_is_available(url: str, target_text: str) -> bool:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         try:
@@ -26,7 +26,7 @@ def cinema_is_available(url: str) -> bool:
             page.goto(url, wait_until="domcontentloaded", timeout=60_000)
             # The cinemas/sessions can arrive after the first page response.
             page.wait_for_timeout(5_000)
-            return TARGET_TEXT.casefold() in page.locator("body").inner_text().casefold()
+            return target_text.casefold() in page.locator("body").inner_text().casefold()
         finally:
             browser.close()
 
@@ -43,9 +43,16 @@ def main() -> int:
         encoding="utf-8",
     )
     try:
-        found = cinema_is_available(URL)
+        target_text = TARGET_TEXT
+        if "--target" in sys.argv:
+            target_index = sys.argv.index("--target") + 1
+            if target_index >= len(sys.argv):
+                raise RuntimeError("O texto de teste não foi informado.")
+            target_text = sys.argv[target_index]
+
+        found = cinema_is_available(URL, target_text)
         if "--json" in sys.argv:
-            print(json.dumps({"found": found, "target": TARGET_TEXT}, ensure_ascii=False))
+            print(json.dumps({"found": found, "target": target_text}, ensure_ascii=False))
             return 0
 
         previous = STATE_PATH.read_text(encoding="utf-8").strip() if STATE_PATH.exists() else "unknown"

@@ -4,6 +4,8 @@ Dê dois cliques em **iniciar-app.bat**. O painel abrirá no navegador e verific
 
 No painel, clique uma vez em **Ativar notificações** e permita os avisos. Quando **UCI RibeirãoShopping** aparecer, a aba emitirá um som e mostrará uma notificação do Windows.
 
+Para confirmar o funcionamento completo, clique em **Testar com Cinépolis**. O app procurará **Cinépolis Iguatemi Ribeirão Preto**, que já aparece na página, e deverá exibir o alerta de teste.
+
 Deixe a aba e a janela preta abertas; ambas podem ficar minimizadas. Para parar o monitor, feche a janela preta.
 
 O app usa o Python e o Playwright que já foram instalados. Não é necessário agendar uma tarefa no Windows nem configurar e-mail.

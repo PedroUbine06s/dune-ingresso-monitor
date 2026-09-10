@@ -48,6 +48,7 @@
         <p id="error"></p>
         <div class="actions">
           <button id="check">Verificar agora</button>
+          <button id="test">Testar com Cinépolis</button>
           <button id="notify">Ativar notificações</button>
           <a href="https://www.ingresso.com/filme/duna-parte-3?city=ribeirao-preto" target="_blank" rel="noreferrer">Abrir no Ingresso</a>
         </div>
@@ -61,22 +62,31 @@
       const nextLabel = document.querySelector("#next");
       const errorLabel = document.querySelector("#error");
       const checkButton = document.querySelector("#check");
+      const testButton = document.querySelector("#test");
       const notifyButton = document.querySelector("#notify");
       let lastFound = false;
+      let lastTestMode = false;
+      let audioContext;
 
       const formatTime = (value) => value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "medium" }).format(new Date(value)) : "—";
 
-      function alertFound() {
-        if (localStorage.getItem("duna-alerted") === "yes") return;
-        localStorage.setItem("duna-alerted", "yes");
-        const audio = new AudioContext();
-        const oscillator = audio.createOscillator();
+      function enableAudio() {
+        audioContext ||= new AudioContext();
+        if (audioContext.state === "suspended") audioContext.resume();
+      }
+
+      function alertFound(testMode, target) {
+        if (!testMode && localStorage.getItem("duna-alerted") === "yes") return;
+        if (!testMode) localStorage.setItem("duna-alerted", "yes");
+        enableAudio();
+        const oscillator = audioContext.createOscillator();
         oscillator.frequency.value = 880;
-        oscillator.connect(audio.destination);
+        oscillator.connect(audioContext.destination);
         oscillator.start();
-        oscillator.stop(audio.currentTime + 0.65);
+        oscillator.stop(audioContext.currentTime + 0.65);
         if (Notification.permission === "granted") {
-          new Notification("UCI RibeirãoShopping apareceu!", { body: "Duna: Parte 3 já consta na página do Ingresso." });
+          const title = testMode ? "Teste concluído: alerta funcionando!" : "UCI RibeirãoShopping apareceu!";
+          new Notification(title, { body: `${target || "O cinema"} foi encontrado na página do Ingresso.` });
         }
       }
 
@@ -86,19 +96,31 @@
           const data = await response.json();
           card.className = `card ${data.state}`;
           checkButton.disabled = data.state === "checking";
+          testButton.disabled = data.state === "checking";
           const labels = { starting: "Iniciando monitor…", checking: "Verificando agora…", waiting: "Ainda não apareceu", found: "UCI RibeirãoShopping encontrado!", error: "Falha na verificação" };
           statusLabel.textContent = labels[data.state] || "Monitor ativo";
+          if (data.testMode && data.state === "checking") statusLabel.textContent = "Testando com Cinépolis…";
+          if (data.testMode && data.state === "found") statusLabel.textContent = "Teste aprovado: Cinépolis encontrado";
+          if (data.testMode && data.state === "waiting") statusLabel.textContent = "Cinépolis não foi encontrado no teste";
           lastLabel.textContent = formatTime(data.checkedAt);
           nextLabel.textContent = formatTime(data.nextCheckAt);
           errorLabel.style.display = data.error ? "block" : "none";
           errorLabel.textContent = data.error || "";
-          if (data.found && !lastFound) alertFound();
+          if (data.found && (!lastFound || data.testMode !== lastTestMode)) alertFound(data.testMode, data.target);
           lastFound = data.found;
+          lastTestMode = data.testMode;
         } catch { statusLabel.textContent = "Tentando reconectar ao monitor…"; }
       }
 
       checkButton.addEventListener("click", async () => { await fetch("/api/check", { method: "POST" }); refresh(); });
+      testButton.addEventListener("click", async () => {
+        enableAudio();
+        if (Notification.permission === "default") await Notification.requestPermission();
+        await fetch("/api/test", { method: "POST" });
+        refresh();
+      });
       notifyButton.addEventListener("click", async () => {
+        enableAudio();
         const result = await Notification.requestPermission();
         notifyButton.textContent = result === "granted" ? "Notificações ativadas" : "Notificação bloqueada";
       });

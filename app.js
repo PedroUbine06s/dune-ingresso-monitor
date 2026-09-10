@@ -9,6 +9,7 @@ const PORT = Number(process.env.DUNA_PORT || 3850);
 const INTERVAL_MS = 5 * 60 * 1000;
 const INDEX_PATH = path.join(__dirname, "public", "index.html");
 const CHECKER_PATH = path.join(__dirname, "monitor_duna.py");
+const TEST_TARGET = "Cinépolis Iguatemi Ribeirão Preto";
 
 let status = {
   state: "starting",
@@ -16,15 +17,18 @@ let status = {
   checkedAt: null,
   nextCheckAt: null,
   error: null,
+  testMode: false,
 };
 let running = false;
 
-function runCheck() {
+function runCheck(testTarget = null) {
   if (running) return;
   running = true;
-  status = { ...status, state: "checking", error: null };
+  status = { ...status, state: "checking", error: null, testMode: Boolean(testTarget) };
 
-  const child = spawn("python", [CHECKER_PATH, "--json"], {
+  const checkerArguments = [CHECKER_PATH, "--json"];
+  if (testTarget) checkerArguments.push("--target", testTarget);
+  const child = spawn("python", checkerArguments, {
     cwd: __dirname,
     windowsHide: true,
   });
@@ -55,6 +59,8 @@ function runCheck() {
         checkedAt: now.toISOString(),
         nextCheckAt: new Date(now.getTime() + INTERVAL_MS).toISOString(),
         error: null,
+        testMode: Boolean(testTarget),
+        target: result.target,
       };
       running = false;
     } catch (error) {
@@ -85,6 +91,13 @@ const server = http.createServer((request, response) => {
 
   if (request.url === "/api/check" && request.method === "POST") {
     runCheck();
+    response.writeHead(202, { "Content-Type": "application/json; charset=utf-8" });
+    response.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (request.url === "/api/test" && request.method === "POST") {
+    runCheck(TEST_TARGET);
     response.writeHead(202, { "Content-Type": "application/json; charset=utf-8" });
     response.end(JSON.stringify({ ok: true }));
     return;
